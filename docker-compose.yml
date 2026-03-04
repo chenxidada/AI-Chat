@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: kb-postgres
+    environment:
+      POSTGRES_USER: kb_user
+      POSTGRES_PASSWORD: kb_password
+      POSTGRES_DB: knowledge_base
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kb_user -d knowledge_base']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.8
+    container_name: kb-meilisearch
+    environment:
+      MEILI_MASTER_KEY: kb_meili_master_key_change_in_production
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: 'true'
+    ports:
+      - '7700:7700'
+    volumes:
+      - meilisearch_data:/meili_data
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--spider', 'http://localhost:7700/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  meilisearch_data:
