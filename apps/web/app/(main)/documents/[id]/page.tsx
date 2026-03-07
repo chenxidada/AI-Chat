@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDocument, useUpdateDocument, useDeleteDocument } from '@/hooks/use-documents';
 import { TagSelector } from '@/components/tags/tag-selector';
+import { MarkdownPreview } from '@/components/documents/markdown-preview';
 import { formatRelativeTime } from '@/lib/utils';
 
 export default function DocumentEditPage() {
@@ -19,6 +20,7 @@ export default function DocumentEditPage() {
   const [content, setContent] = useState('');
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [mode, setMode] = useState<'edit' | 'preview'>('edit');
 
   // Sync from server
   useEffect(() => {
@@ -104,13 +106,38 @@ export default function DocumentEditPage() {
             </svg>
           </button>
           <div className="text-sm text-gray-500">
-            {doc.folder ? doc.folder.name : '未分类'} / 编辑
+            {doc.folder ? doc.folder.name : '未分类'} / {mode === 'edit' ? '编辑' : '预览'}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400">
             {doc.wordCount} 字 | 更新于 {formatRelativeTime(doc.updatedAt)}
           </span>
+
+          {/* Edit / Preview toggle */}
+          <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
+            <button
+              onClick={() => setMode('edit')}
+              className={`px-3 py-1 text-xs transition-colors ${
+                mode === 'edit'
+                  ? 'bg-gray-200 text-gray-800 font-medium'
+                  : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              编辑
+            </button>
+            <button
+              onClick={() => setMode('preview')}
+              className={`px-3 py-1 text-xs transition-colors ${
+                mode === 'preview'
+                  ? 'bg-gray-200 text-gray-800 font-medium'
+                  : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              预览
+            </button>
+          </div>
+
           <button
             onClick={handleSave}
             disabled={!hasChanges || updateDocument.isPending}
@@ -130,30 +157,40 @@ export default function DocumentEditPage() {
         </div>
       </div>
 
-      {/* Editor area */}
+      {/* Editor / Preview area */}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-4xl mx-auto space-y-4">
           {/* Title */}
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="输入文档标题..."
-            className="w-full text-3xl font-bold text-gray-900 placeholder-gray-300 border-none outline-none bg-transparent"
-            maxLength={500}
-          />
+          {mode === 'edit' ? (
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="输入文档标题..."
+              className="w-full text-3xl font-bold text-gray-900 placeholder-gray-300 border-none outline-none bg-transparent"
+              maxLength={500}
+            />
+          ) : (
+            <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+          )}
 
           {/* Tags */}
-          <div className="max-w-md">
-            <TagSelector selectedIds={tagIds} onChange={setTagIds} />
-          </div>
+          {mode === 'edit' && (
+            <div className="max-w-md">
+              <TagSelector selectedIds={tagIds} onChange={setTagIds} />
+            </div>
+          )}
 
-          {/* Content textarea */}
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="开始写作... (支持 Markdown 语法)"
-            className="w-full min-h-[500px] text-base text-gray-800 placeholder-gray-300 border-none outline-none bg-transparent resize-none leading-relaxed font-mono"
-          />
+          {/* Content */}
+          {mode === 'edit' ? (
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="开始写作... (支持 Markdown 语法)"
+              className="w-full min-h-[500px] text-base text-gray-800 placeholder-gray-300 border-none outline-none bg-transparent resize-none leading-relaxed font-mono"
+            />
+          ) : (
+            <MarkdownPreview content={content} />
+          )}
         </div>
       </div>
     </div>

@@ -22,6 +22,7 @@
     "@prisma/client": "^5.14.0",
     "class-validator": "^0.14.0",
     "class-transformer": "^0.5.0",
+    "meilisearch": "^0.41.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
     "@kb/shared": "workspace:*"

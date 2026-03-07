@@ -2,8 +2,10 @@ import {
   Injectable,
   NotFoundException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { MeiliService } from '../search/meili.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { QueryDocumentDto } from './dto/query-document.dto';
@@ -13,7 +15,10 @@ import { extractPlainText, countWords } from '../../common/utils/text.utils';
 export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly meili?: MeiliService,
+  ) {}
 
   // ─── 分页查询文档列表 ─────────────────────────────────────────────────────────
 
@@ -150,10 +155,17 @@ export class DocumentsService {
       },
     });
 
-    return {
+    const result = {
       ...doc,
       tags: doc.tags.map((dt) => dt.tag),
     };
+
+    // 异步同步到 Meilisearch
+    this.syncToMeili(doc).catch((err) =>
+      this.logger.warn(`Meilisearch sync failed on create: ${err.message}`),
+    );
+
+    return result;
   }
 
   // ─── 更新文档 ──────────────────────────────────────────────────────────────────
@@ -197,10 +209,17 @@ export class DocumentsService {
       },
     });
 
-    return {
+    const result = {
       ...doc,
       tags: doc.tags.map((dt) => dt.tag),
     };
+
+    // 异步同步到 Meilisearch
+    this.syncToMeili(doc).catch((err) =>
+      this.logger.warn(`Meilisearch sync failed on update: ${err.message}`),
+    );
+
+    return result;
   }
 
   // ─── 软删除（归档） ───────────────────────────────────────────────────────────
@@ -227,6 +246,12 @@ export class DocumentsService {
     }
 
     await this.prisma.document.delete({ where: { id } });
+
+    // 从 Meilisearch 删除
+    this.meili?.removeDocument(id).catch((err) =>
+      this.logger.warn(`Meilisearch delete failed: ${err.message}`),
+    );
+
     return { id };
   }
 
@@ -271,5 +296,25 @@ export class DocumentsService {
       ...doc,
       tags: doc.tags.map((dt) => dt.tag),
     }));
+  }
+
+  // ─── Meilisearch 同步 ────────────────────────────────────────────────────────
+
+  private async syncToMeili(doc: any): Promise<void> {
+    if (!this.meili) return;
+    await this.meili.indexDocument({
+      id: doc.id,
+      title: doc.title,
+      contentPlain: doc.contentPlain,
+      folderId: doc.folderId,
+      folderName: doc.folder?.name || null,
+      tagIds: doc.tags.map((t: any) => t.tagId ?? t.id),
+      tags: doc.tags.map((t: any) => t.tag?.name ?? t.name),
+      sourceType: doc.sourceType,
+      isArchived: doc.isArchived,
+      wordCount: doc.wordCount,
+      createdAt: Math.floor(new Date(doc.createdAt).getTime() / 1000),
+      updatedAt: Math.floor(new Date(doc.updatedAt).getTime() / 1000),
+    });
   }
 }
