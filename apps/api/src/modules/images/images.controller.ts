@@ -22,7 +22,7 @@ import { ImagesService } from './images.service';
 import { ApiTags, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 
 @ApiTags('Images')
-@Controller('v1/images')
+@Controller('images')
 export class ImagesController {
   constructor(private readonly imagesService: ImagesService) {}
 
