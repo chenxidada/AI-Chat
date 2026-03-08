@@ -54,6 +54,7 @@ model Document {
   // 关联
   folder Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
   tags   DocumentTag[]
+  images DocumentImage[]
 
   @@index([folderId])
   @@index([isArchived])
@@ -88,6 +89,25 @@ model DocumentTag {
   @@id([documentId, tagId])
   @@index([tagId])
   @@map("document_tags")
+}
+
+// ============================================
+// 文档图片 - 上传图片管理
+// ============================================
+model DocumentImage {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  documentId   String?  @map("document_id") @db.Uuid
+  filename     String   @db.VarChar(255)
+  originalName String   @map("original_name") @db.VarChar(255)
+  mimeType     String   @map("mime_type") @db.VarChar(100)
+  size         Int
+  url          String   @db.VarChar(500)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  document Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@map("document_images")
 }
 
 // ============================================

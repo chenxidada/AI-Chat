@@ -19,7 +19,7 @@ Phase 1-1a ──► Phase 1-1b ──► Phase 1-2 ──► Phase 1-3
 | **1-1a** | 后端 API + 前端布局 Shell | 3 组 CRUD API + 应用骨架 | `phase1-1a-spec.md` |
 | **1-1b** | 前端 CRUD 管理界面 | 文件夹树 + 文档列表 + 标签管理 | `phase1-1b-spec.md` |
 | **1-2** | 搜索与文档预览 | Meilisearch 集成 + 搜索 UI + 文档预览 | `phase1-2-spec.md` |
-| **1-3** | Markdown 编辑器 | CodeMirror 分屏编辑 + 自动保存 | `phase1-3-spec.md` |
+| **1-3** | Markdown 编辑器 | CodeMirror 分屏编辑 + 自动保存 | `phase1-3-spec.md` (索引), `phase1-3a-spec.md`, `phase1-3b-spec.md`, `phase1-3c-spec.md` |
 
 ## 3. 子阶段依赖关系
 
