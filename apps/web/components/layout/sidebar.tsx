@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/app-store';
 import { FolderTree } from '@/components/folders/folder-tree';
@@ -12,6 +14,7 @@ export function Sidebar() {
   const { sidebarOpen } = useAppStore();
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [showManageTag, setShowManageTag] = useState(false);
+  const pathname = usePathname();
 
   return (
     <>
@@ -27,9 +30,25 @@ export function Sidebar() {
           <span className="text-sm text-gray-500">知识库</span>
         </div>
 
-        {/* Folders Section */}
         <div className="flex-1 overflow-y-auto">
+          {/* AI 对话入口 */}
           <div className="px-3 pt-4 pb-2">
+            <Link
+              href="/conversations/new"
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 rounded-lg transition-colors',
+                pathname.startsWith('/conversations')
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-700 hover:bg-gray-200'
+              )}
+            >
+              <span className="text-lg">💬</span>
+              <span className="text-sm font-medium">AI 对话</span>
+            </Link>
+          </div>
+
+          {/* Folders Section */}
+          <div className="px-3 pt-4 pb-2 border-t border-gray-200 mt-2">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">文件夹</span>
               <button

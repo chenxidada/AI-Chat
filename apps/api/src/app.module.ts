@@ -11,6 +11,9 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { TagsModule } from './modules/tags/tags.module';
 import { SearchModule } from './modules/search/search.module';
 import { ImagesModule } from './modules/images/images.module';
+import { AiModule } from './modules/ai/ai.module';
+import { ConversationsModule } from './modules/conversations/conversations.module';
+import { EmbeddingModule } from './modules/embedding/embedding.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -49,6 +52,11 @@ import configuration from './config/configuration';
     TagsModule,
     SearchModule,
     ImagesModule,
+
+    // Phase 2: AI 对话模块
+    AiModule,
+    ConversationsModule,
+    EmbeddingModule,
   ],
 })
 export class AppModule {}

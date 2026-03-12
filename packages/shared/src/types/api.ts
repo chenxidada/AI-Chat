@@ -152,11 +152,7 @@ export interface UpdateConversationRequest {
   isArchived?: boolean;
 }
 
-export interface ChatRequest {
-  conversationId?: string;
-  message: string;
-  mode?: 'general' | 'knowledge_base';
-}
+// ChatRequest 已移至 ai.ts
 
 export interface ChatStreamEvent {
   type: 'sources' | 'content' | 'done' | 'error';

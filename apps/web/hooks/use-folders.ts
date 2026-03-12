@@ -25,6 +25,17 @@ export function useFolderTree() {
   });
 }
 
+// 获取文件夹列表（扁平化）
+export function useFolders() {
+  return useQuery<Folder[]>({
+    queryKey: ['folders', 'tree'],
+    queryFn: async () => {
+      const res = await apiClient.get('/v1/folders');
+      return res.data;
+    },
+  });
+}
+
 // 创建文件夹
 export function useCreateFolder() {
   const qc = useQueryClient();

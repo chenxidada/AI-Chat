@@ -22,6 +22,7 @@ model Folder {
   name      String   @db.VarChar(255)
   parentId  String?  @map("parent_id") @db.Uuid
   sortOrder Int      @default(0) @map("sort_order")
+  isPinned  Boolean  @default(false) @map("is_pinned")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -31,6 +32,7 @@ model Folder {
   documents Document[]
 
   @@index([parentId])
+  @@index([isPinned])
   @@map("folders")
 }
 
@@ -47,6 +49,8 @@ model Document {
   sourceUrl    String?  @map("source_url")
   wordCount    Int      @default(0) @map("word_count")
   isArchived   Boolean  @default(false) @map("is_archived")
+  isFavorite   Boolean  @default(false) @map("is_favorite")
+  isPinned     Boolean  @default(false) @map("is_pinned")
   metadata     Json     @default("{}")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -55,9 +59,12 @@ model Document {
   folder Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
   tags   DocumentTag[]
   images DocumentImage[]
+  chunks DocumentChunk[]
 
   @@index([folderId])
   @@index([isArchived])
+  @@index([isFavorite])
+  @@index([isPinned])
   @@index([createdAt(sort: Desc)])
   @@map("documents")
 }
@@ -118,13 +125,22 @@ model Conversation {
   title      String   @default("新对话") @db.VarChar(255)
   mode       String   @default("general") @db.VarChar(20)
   isArchived Boolean  @default(false) @map("is_archived")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Phase 2: 上下文范围控制
+  contextDocumentIds String[] @default([]) @map("context_document_ids")
+  contextFolderId    String?  @map("context_folder_id") @db.Uuid
+  contextTagIds      String[] @default([]) @map("context_tag_ids")
+  modelUsed          String?  @map("model_used") @db.VarChar(100)
+  totalTokens        Int      @default(0) @map("total_tokens")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   messages Message[]
 
   @@index([isArchived])
   @@index([updatedAt(sort: Desc)])
+  @@index([contextFolderId])
   @@map("conversations")
 }
 
@@ -157,4 +173,27 @@ model SystemSettings {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
+}
+
+// ============================================
+// 文档分块 - 向量存储 (Phase 2)
+// ============================================
+model DocumentChunk {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  documentId  String   @map("document_id") @db.Uuid
+  chunkIndex  Int      @map("chunk_index")
+  chunkText   String   @map("chunk_text") @db.Text
+  heading     String?  @db.VarChar(500)
+  tokenCount  Int      @default(0) @map("token_count")
+  embedding   Unsupported("vector(1024)")? // qwen-embedding 维度
+  contentHash String   @map("content_hash") @db.VarChar(64)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId])
+  @@index([createdAt])
+  @@map("document_chunks")
 }
