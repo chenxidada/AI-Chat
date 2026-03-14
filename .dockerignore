@@ -1,0 +1,51 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+.next
+build
+*.tsbuildinfo
+
+# Development files
+*.log
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+coverage
+.nyc_output
+
+# Documentation
+*.md
+!README.md
+docs
+
+# Scripts (not needed in container)
+*.sh
+!docker-entrypoint.sh
+
+# Misc
+.DS_Store
+Thumbs.db
+*.pem
+*.key

@@ -5,6 +5,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { CacheService } from '../../common/cache/cache.service';
 import { MeiliService } from '../search/meili.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
@@ -15,8 +16,13 @@ import { extractPlainText, countWords } from '../../common/utils/text.utils';
 export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
 
+  // Cache key prefixes
+  private readonly CACHE_PREFIX = 'doc';
+  private readonly CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
   constructor(
     private readonly prisma: PrismaService,
+    private readonly cacheService: CacheService,
     @Optional() private readonly meili?: MeiliService,
   ) {}
 
@@ -32,6 +38,8 @@ export class DocumentsService {
       sortBy = 'updatedAt',
       sortOrder = 'desc',
       keyword,
+      isFavorite,
+      isPinned,
     } = query;
 
     const skip = (page - 1) * limit;
@@ -65,13 +73,26 @@ export class DocumentsService {
       };
     }
 
+    // 收藏筛选
+    if (isFavorite !== undefined) {
+      where.isFavorite = isFavorite === 'true';
+    }
+
+    // 置顶筛选
+    if (isPinned !== undefined) {
+      where.isPinned = isPinned === 'true';
+    }
+
     const [total, items] = await Promise.all([
       this.prisma.document.count({ where }),
       this.prisma.document.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { [sortBy]: sortOrder },
+        orderBy: [
+          { isPinned: 'desc' },
+          { [sortBy]: sortOrder },
+        ],
         include: {
           folder: {
             select: { id: true, name: true },
@@ -103,26 +124,34 @@ export class DocumentsService {
   // ─── 获取单个文档详情 ─────────────────────────────────────────────────────────
 
   async findOne(id: string) {
-    const doc = await this.prisma.document.findUnique({
-      where: { id },
-      include: {
-        folder: {
-          select: { id: true, name: true },
-        },
-        tags: {
-          include: { tag: true },
-        },
+    const cacheKey = `${this.CACHE_PREFIX}:detail:${id}`;
+
+    return this.cacheService.getOrSet(
+      cacheKey,
+      async () => {
+        const doc = await this.prisma.document.findUnique({
+          where: { id },
+          include: {
+            folder: {
+              select: { id: true, name: true },
+            },
+            tags: {
+              include: { tag: true },
+            },
+          },
+        });
+
+        if (!doc) {
+          throw new NotFoundException(`文档 ${id} 不存在`);
+        }
+
+        return {
+          ...doc,
+          tags: doc.tags.map((dt) => dt.tag),
+        };
       },
-    });
-
-    if (!doc) {
-      throw new NotFoundException(`文档 ${id} 不存在`);
-    }
-
-    return {
-      ...doc,
-      tags: doc.tags.map((dt) => dt.tag),
-    };
+      this.CACHE_TTL,
+    );
   }
 
   // ─── 创建文档 ──────────────────────────────────────────────────────────────────
@@ -214,6 +243,9 @@ export class DocumentsService {
       tags: doc.tags.map((dt) => dt.tag),
     };
 
+    // Invalidate cache
+    await this.cacheService.del(`${this.CACHE_PREFIX}:detail:${id}`);
+
     // 异步同步到 Meilisearch
     this.syncToMeili(doc).catch((err) =>
       this.logger.warn(`Meilisearch sync failed on update: ${err.message}`),
@@ -234,6 +266,9 @@ export class DocumentsService {
       where: { id },
       data: { isArchived: !doc.isArchived },
       select: { id: true, isArchived: true },
+    }).then(async (result) => {
+      await this.cacheService.del(`${this.CACHE_PREFIX}:detail:${id}`);
+      return result;
     });
   }
 
@@ -246,6 +281,9 @@ export class DocumentsService {
     }
 
     await this.prisma.document.delete({ where: { id } });
+
+    // Invalidate cache
+    await this.cacheService.del(`${this.CACHE_PREFIX}:detail:${id}`);
 
     // 从 Meilisearch 删除
     this.meili?.removeDocument(id).catch((err) =>
@@ -284,7 +322,10 @@ export class DocumentsService {
   async findRecent(limit: number = 10) {
     const docs = await this.prisma.document.findMany({
       where: { isArchived: false },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: [
+        { isPinned: 'desc' },
+        { updatedAt: 'desc' },
+      ],
       take: limit,
       include: {
         folder: { select: { id: true, name: true } },
@@ -296,6 +337,155 @@ export class DocumentsService {
       ...doc,
       tags: doc.tags.map((dt) => dt.tag),
     }));
+  }
+
+  // ─── 收藏文档列表 ──────────────────────────────────────────────────────────────
+
+  async findFavorites(params: { page?: number; limit?: number }) {
+    const { page = 1, limit = 20 } = params;
+    const skip = (page - 1) * limit;
+
+    const [total, items] = await Promise.all([
+      this.prisma.document.count({
+        where: {
+          isFavorite: true,
+          isArchived: false,
+        },
+      }),
+      this.prisma.document.findMany({
+        where: {
+          isFavorite: true,
+          isArchived: false,
+        },
+        skip,
+        take: limit,
+        orderBy: [
+          { isPinned: 'desc' },
+          { updatedAt: 'desc' },
+        ],
+        include: {
+          folder: { select: { id: true, name: true } },
+          tags: { include: { tag: true } },
+        },
+      }),
+    ]);
+
+    return {
+      items: items.map((doc) => ({
+        ...doc,
+        tags: doc.tags.map((dt) => dt.tag),
+      })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // ─── 切换收藏状态 ──────────────────────────────────────────────────────────────
+
+  async toggleFavorite(id: string) {
+    const doc = await this.prisma.document.findUnique({
+      where: { id },
+      select: { isFavorite: true },
+    });
+
+    if (!doc) {
+      throw new NotFoundException(`文档 ${id} 不存在`);
+    }
+
+    const updated = await this.prisma.document.update({
+      where: { id },
+      data: { isFavorite: !doc.isFavorite },
+    });
+
+    return { isFavorite: updated.isFavorite };
+  }
+
+  // ─── 切换置顶状态 ──────────────────────────────────────────────────────────────
+
+  async togglePin(id: string) {
+    const doc = await this.prisma.document.findUnique({
+      where: { id },
+      select: { isPinned: true },
+    });
+
+    if (!doc) {
+      throw new NotFoundException(`文档 ${id} 不存在`);
+    }
+
+    const updated = await this.prisma.document.update({
+      where: { id },
+      data: { isPinned: !doc.isPinned },
+    });
+
+    return { isPinned: updated.isPinned };
+  }
+
+  // ─── 切换文件夹置顶状态 ────────────────────────────────────────────────────────
+
+  async toggleFolderPin(id: string) {
+    const folder = await this.prisma.folder.findUnique({
+      where: { id },
+      select: { isPinned: true },
+    });
+
+    if (!folder) {
+      throw new NotFoundException(`文件夹 ${id} 不存在`);
+    }
+
+    const updated = await this.prisma.folder.update({
+      where: { id },
+      data: { isPinned: !folder.isPinned },
+    });
+
+    return { isPinned: updated.isPinned };
+  }
+
+  // ─── 复制文档 ──────────────────────────────────────────────────────────────────
+
+  async duplicate(id: string) {
+    const original = await this.prisma.document.findUnique({
+      where: { id },
+      include: { tags: { include: { tag: true } } },
+    });
+
+    if (!original) {
+      throw new NotFoundException(`文档 ${id} 不存在`);
+    }
+
+    // 创建副本
+    const copy = await this.prisma.document.create({
+      data: {
+        title: `${original.title} (副本)`,
+        content: original.content,
+        contentPlain: original.contentPlain,
+        folderId: original.folderId,
+        sourceType: 'manual',
+        wordCount: original.wordCount,
+        tags: original.tags.length
+          ? {
+              create: original.tags.map((t) => ({ tagId: t.tagId })),
+            }
+          : undefined,
+      },
+      include: {
+        folder: true,
+        tags: { include: { tag: true } },
+      },
+    });
+
+    const result = {
+      ...copy,
+      tags: copy.tags.map((dt) => dt.tag),
+    };
+
+    // 同步到 Meilisearch
+    this.syncToMeili(result).catch((err) =>
+      this.logger.warn(`Meilisearch sync failed on duplicate: ${err.message}`),
+    );
+
+    return result;
   }
 
   // ─── Meilisearch 同步 ────────────────────────────────────────────────────────
@@ -318,3 +508,4 @@ export class DocumentsService {
     });
   }
 }
+

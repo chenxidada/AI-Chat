@@ -56,10 +56,13 @@ model Document {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // 关联
-  folder Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  tags   DocumentTag[]
-  images DocumentImage[]
-  chunks DocumentChunk[]
+  folder      Folder?        @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  tags        DocumentTag[]
+  images      DocumentImage[]
+  chunks      DocumentChunk[]
+  sourceLinks BiLink[]       @relation("SourceLinks")
+  targetLinks BiLink[]       @relation("TargetLinks")
+  pdfFiles    PdfFile[]
 
   @@index([folderId])
   @@index([isArchived])
@@ -126,6 +129,12 @@ model Conversation {
   mode       String   @default("general") @db.VarChar(20)
   isArchived Boolean  @default(false) @map("is_archived")
 
+  // Phase 3-5: 置顶、星标、摘要
+  isPinned   Boolean  @default(false) @map("is_pinned")
+  isStarred  Boolean  @default(false) @map("is_starred")
+  summary    String?  @db.Text
+  keywords   String[] @default([]) @map("keywords")
+
   // Phase 2: 上下文范围控制
   contextDocumentIds String[] @default([]) @map("context_document_ids")
   contextFolderId    String?  @map("context_folder_id") @db.Uuid
@@ -139,6 +148,8 @@ model Conversation {
   messages Message[]
 
   @@index([isArchived])
+  @@index([isPinned])
+  @@index([isStarred])
   @@index([updatedAt(sort: Desc)])
   @@index([contextFolderId])
   @@map("conversations")
@@ -196,4 +207,69 @@ model DocumentChunk {
   @@index([documentId])
   @@index([createdAt])
   @@map("document_chunks")
+}
+
+// ============================================
+// 双向链接 - 文档间引用关系 (Phase 3-2)
+// ============================================
+model BiLink {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sourceDocId String   @map("source_doc_id") @db.Uuid
+  targetDocId String   @map("target_doc_id") @db.Uuid
+  linkText    String   @map("link_text") @db.VarChar(500)
+  position    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sourceDoc Document @relation("SourceLinks", fields: [sourceDocId], references: [id], onDelete: Cascade)
+  targetDoc Document @relation("TargetLinks", fields: [targetDocId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceDocId, targetDocId])
+  @@index([sourceDocId])
+  @@index([targetDocId])
+  @@map("bi_links")
+}
+
+// ============================================
+// 文档模板 (Phase 3-1b)
+// ============================================
+model DocumentTemplate {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  content     String   @default("")
+  category    String   @default("general") @db.VarChar(100)
+  icon        String?  @db.VarChar(50)
+  isPublic    Boolean  @default(false) @map("is_public")
+  usageCount  Int      @default(0) @map("usage_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([isPublic])
+  @@map("document_templates")
+}
+
+// ============================================
+// PDF 文件管理 (Phase 3 Enhancement)
+// ============================================
+model PdfFile {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  filename      String   @db.VarChar(255)
+  originalName  String   @map("original_name") @db.VarChar(255)
+  mimeType      String   @map("mime_type") @db.VarChar(100)
+  size          Int
+  url           String   @db.VarChar(500)
+  pageCount     Int      @default(0) @map("page_count")
+  thumbnailUrl  String?  @map("thumbnail_url") @db.VarChar(500)
+  extractedText String?  @map("extracted_text") @db.Text
+  documentId    String?  @map("document_id") @db.Uuid
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  document Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([createdAt])
+  @@map("pdf_files")
 }

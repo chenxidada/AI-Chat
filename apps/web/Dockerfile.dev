@@ -1,0 +1,38 @@
+# ============================================
+# Knowledge Base Web - Development Dockerfile
+# ============================================
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# 安装 pnpm
+RUN corepack enable && corepack prepare pnpm@9.1.0 --activate
+
+# 复制 package 文件
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/shared/package.json ./packages/shared/
+
+# 安装依赖
+RUN pnpm install
+
+# 复制源代码
+COPY packages/shared ./packages/shared
+COPY apps/web ./apps/web
+COPY turbo.json ./
+
+# 构建 shared 包
+WORKDIR /app/packages/shared
+RUN pnpm run build
+
+# 设置环境变量
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000/api
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+WORKDIR /app/apps/web
+ENV NEXT_TELEMETRY_DISABLED=1
+
+EXPOSE 3000
+
+CMD ["pnpm", "dev", "--hostname", "0.0.0.0"]

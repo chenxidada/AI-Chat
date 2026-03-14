@@ -28,6 +28,16 @@ export class QueryDocumentDto {
   @IsString()
   isArchived?: string;
 
+  @ApiPropertyOptional({ description: '是否已收藏', enum: ['true', 'false'] })
+  @IsOptional()
+  @IsString()
+  isFavorite?: string;
+
+  @ApiPropertyOptional({ description: '是否已置顶', enum: ['true', 'false'] })
+  @IsOptional()
+  @IsString()
+  isPinned?: string;
+
   @ApiPropertyOptional({
     description: '排序字段',
     enum: ['updatedAt', 'createdAt', 'title', 'wordCount'],

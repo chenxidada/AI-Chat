@@ -5,6 +5,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 
 import { PrismaModule } from './common/prisma/prisma.module';
+import { CacheModule } from './common/cache/cache.module';
 import { HealthModule } from './modules/health/health.module';
 import { FoldersModule } from './modules/folders/folders.module';
 import { DocumentsModule } from './modules/documents/documents.module';
@@ -14,6 +15,11 @@ import { ImagesModule } from './modules/images/images.module';
 import { AiModule } from './modules/ai/ai.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { EmbeddingModule } from './modules/embedding/embedding.module';
+import { LinksModule } from './modules/links/links.module';
+import { ImportExportModule } from './modules/import-export/import-export.module';
+import { GraphModule } from './modules/graph/graph.module';
+import { TemplatesModule } from './modules/templates/templates.module';
+import { PdfModule } from './modules/pdf/pdf.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -45,6 +51,9 @@ import configuration from './config/configuration';
     // 数据库模块
     PrismaModule,
 
+    // 缓存模块
+    CacheModule,
+
     // 业务模块
     HealthModule,
     FoldersModule,
@@ -57,6 +66,21 @@ import configuration from './config/configuration';
     AiModule,
     ConversationsModule,
     EmbeddingModule,
+
+    // Phase 3-2: 双向链接模块
+    LinksModule,
+
+    // Phase 3-4: 导入导出模块
+    ImportExportModule,
+
+    // Phase 3-3: 知识图谱模块
+    GraphModule,
+
+    // Phase 3-1b: 模板模块
+    TemplatesModule,
+
+    // PDF 文件管理模块
+    PdfModule,
   ],
 })
 export class AppModule {}

@@ -78,4 +78,13 @@ export class FoldersController {
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.foldersService.remove(id);
   }
+
+  @Patch(':id/pin')
+  @ApiOperation({ summary: '切换文件夹置顶状态' })
+  @ApiParam({ name: 'id', description: '文件夹 ID (UUID)' })
+  @ApiResponse({ status: 200, description: '置顶状态已切换' })
+  @ApiResponse({ status: 404, description: '文件夹不存在' })
+  togglePin(@Param('id', ParseUUIDPipe) id: string) {
+    return this.foldersService.togglePin(id);
+  }
 }

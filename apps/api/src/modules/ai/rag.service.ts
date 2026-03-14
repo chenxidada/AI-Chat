@@ -205,4 +205,43 @@ export class RagService {
 
     return truncated + '...';
   }
+
+  /**
+   * 仅检索上下文（不生成答案）
+   */
+  async retrieveContext(params: {
+    question: string;
+    context?: {
+      documentIds?: string[];
+      folderId?: string;
+      tagIds?: string[];
+    };
+  }): Promise<{ context: string; citations: Citation[] }> {
+    // 1. 检索相关文档块
+    const searchResults = await this.vectorSearch.search({
+      query: params.question,
+      limit: 8,
+      threshold: 0.7,
+      ...params.context,
+    });
+
+    if (searchResults.length === 0) {
+      return { context: '没有找到相关资料', citations: [] };
+    }
+
+    // 2. 构建上下文
+    const context = this.buildContext(searchResults);
+
+    // 3. 构建引用列表
+    const citations: Citation[] = searchResults.slice(0, 5).map((r, index) => ({
+      id: `cite-${index + 1}`,
+      chunkId: r.id,
+      documentId: r.documentId,
+      documentTitle: r.documentTitle,
+      excerpt: this.getExcerpt(r.chunkText, 150),
+      similarity: r.similarity,
+    }));
+
+    return { context, citations };
+  }
 }

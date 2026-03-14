@@ -21,7 +21,11 @@ export class FoldersService {
           select: { documents: true },
         },
       },
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      orderBy: [
+        { isPinned: 'desc' },
+        { sortOrder: 'asc' },
+        { name: 'asc' },
+      ],
     });
 
     return this.buildTree(folders, null);
@@ -39,7 +43,11 @@ export class FoldersService {
               select: { documents: true },
             },
           },
-          orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+          orderBy: [
+            { isPinned: 'desc' },
+            { sortOrder: 'asc' },
+            { name: 'asc' },
+          ],
         },
         _count: {
           select: { documents: true },
@@ -185,6 +193,26 @@ export class FoldersService {
     );
 
     return { updated: dto.items.length };
+  }
+
+  // ─── 切换置顶状态 ────────────────────────────────────────────────────────────────
+
+  async togglePin(id: string) {
+    const folder = await this.prisma.folder.findUnique({
+      where: { id },
+      select: { isPinned: true },
+    });
+
+    if (!folder) {
+      throw new NotFoundException(`文件夹 ${id} 不存在`);
+    }
+
+    const updated = await this.prisma.folder.update({
+      where: { id },
+      data: { isPinned: !folder.isPinned },
+    });
+
+    return { isPinned: updated.isPinned };
   }
 
   // ─── 辅助方法 ──────────────────────────────────────────────────────────────────

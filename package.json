@@ -15,7 +15,13 @@
     "db:studio": "pnpm --filter @kb/api exec prisma studio",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "verify": "bash scripts/verify.sh"
+    "test": "pnpm --filter @kb/api test",
+    "test:cov": "pnpm --filter @kb/api test:cov",
+    "verify": "bash scripts/verify.sh",
+    "start": "./start.sh",
+    "stop": "./stop.sh",
+    "status": "./status.sh",
+    "setup": "./setup.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
